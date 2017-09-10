@@ -41,7 +41,8 @@ def print_out(words, total):
     print("----------------------")
     for word in words:
         print("{0}\t{1:d}\t{2:.2f}%".format(word[0], word[1],
-              float(word[1])/float(total)))
+              (float(word[1])/float(total)) * 100
+              ))
 
 def main(argv):
     # argv = python_file.py filepath k [en | fr]
