@@ -146,7 +146,8 @@ public class DateRegularExp{
     );
     */
 
-    private static final String timeOfDayRegex = "((?i)" + String.join("\\b)|(\\b",
+    private static final String timeOfDayRegex = "((?i)"
+        + String.join("\\b)|(\\b",
         "(\\b" + "([1-9])|([12][0-9])\\so'clock",
         "[012]?[0-9][:\\.][0-5][0-9]\\s((p\\.?m\\.?)|(a\\.?m\\.?))?" + "\\b)"
     ) + ")";
