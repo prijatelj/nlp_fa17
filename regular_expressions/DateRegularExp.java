@@ -54,7 +54,8 @@ public class DateRegularExp{
     private static final String minutes= "((?i)" + String.join("|",
         singleNum, teensNum,
         "(\\bten\\b)",
-        "((twen)|(thir)|(four)|(fif)|(six))ty" + "(-" + singleNum + ")?" +"\\b)"
+        "(\\b((twen)|(thir)|(four)|(fif)|(six))ty" + "(-" + singleNum + ")?"
+            + "\\b)"
     ) + ")";
 
     //*/
@@ -112,7 +113,8 @@ public class DateRegularExp{
     private static final String absoluteDateRegex = String.join(")|(",
         "(\\b" + dayStr + ",\\s" + monthStr + "\\s" + dayNum + ",\\s" + yearNum
             + "\\b",
-        "\\b" + monthStr + "\\s" + dayNum + "\\b",
+        "\\b" + monthStr + "\\s" + dayNum  + ",\\s" + yearNum + "\\b",
+        "\\b" + monthStr + "\\s" + dayNum + "(\\sof((" + yearNum + ")|(((last)|(next))\\syear)))?\\b",
         "\\b(the\\s)?" + dayNum + "((nd)|(st)|(th))?\\sof\\s" + monthStr + "\\b",
         holidays,
         mmddyyyy + ")"
@@ -120,14 +122,22 @@ public class DateRegularExp{
     private static final String diecticDateRegex = "((?i)"
         + String.join("\\b)|(\\b",
         "(\\b"+ "(yesterday)", "(tomorrow)", "(today)", "(yesteryear)",
+        "((last)|(next))\\s((day)|(year)|(week)|(month))",
         "(a|(1-9)+|" + singleNum + ")\\s((days?)|(weeks?)|(months?)|(years?))"
-            + "\\sfrom\\s((yesterday)/(tomorrow)/(today))" + "\\b)"
+            + "((\\sfrom\\s((yesterday)/(tomorrow)/(today)))"
+            + "|(\\s((ago)|(prior))))" + "\\b)"
     ) + ")";
 
     private static final String timeOfDayRegex = "((?i)"
         + String.join("\\b)|(\\b",
         "(\\b" + "([1-9]|([12][0-9]))\\so'clock",
-        "[012]?[0-9][:\\.][0-5][0-9]\\s((p\\.?m\\.?)|(a\\.?m\\.?))?" + "\\b)"
+        "((half)|(quater))\\s((to)|(past))\\s((" + hours
+            + "(\\so'clock)?)|(noon)|(midnight))",
+        hours + "\\so'clock(\\sand\\s" + minutes + "\\sminutes?)?",
+        "morning", "mid((night)|(day))", "(after)?noon", "night", "evening",
+        "twilight", "dusk", "dawn", "eve", "sun((set)|(rise))", "daybreak",
+        "sunup", "morn", "midday", "nighttime", "nightfall",
+        "[012]?[0-9][:\\.][0-5][0-9](\\s(p\\.?m\\.?)|(a\\.?m\\.?))?" + "\\b)"
     ) + ")";
 
     public static void main(String[] args){
@@ -170,6 +180,7 @@ public class DateRegularExp{
 
                 while (absMatcher.find()){
                     abs++;
+                    System.out.println(absMatcher.group());
                 }
                 while (diecticMatcher.find()){
                     diectic++;
@@ -177,7 +188,7 @@ public class DateRegularExp{
                 }
                 while (timeOfDayMatcher.find()){
                     timeOfDay++;
-                    System.out.println(timeOfDayMatcher.group());
+                    //System.out.println(timeOfDayMatcher.group());
                 }
             }
             reader.close();
