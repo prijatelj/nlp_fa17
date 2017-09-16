@@ -7,6 +7,15 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.ArrayList;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.stream.*;
+import java.util.Map;
+import java.util.*;
+//import java.util.Element
 
 public class DateRegularExp{
     /**
@@ -140,6 +149,36 @@ public class DateRegularExp{
         "[012]?[0-9][:\\.][0-5][0-9](\\s(p\\.?m\\.?)|(a\\.?m\\.?))?" + "\\b)"
     ) + ")";
 
+    public static void printOutMap(HashMap<String, Integer> map, int total){
+
+        final Comparator<Map.Entry<String, Integer>> byVal =
+            Comparator.comparing(Map.Entry::getValue, Comparator.reverseOrder());
+        final Comparator<Map.Entry<String, Integer>> byKey =
+            Comparator.comparing(Map.Entry::getKey);
+
+        //Stream<Map.Entry<String,Integer>> sorted =
+        List<String> sortedList =
+            map.entrySet().stream()
+            .sorted(byVal.thenComparing(byKey))
+            .map(Map.Entry::toString)//entrySet)
+            .collect(Collectors.toList());
+
+
+                //.sorted(Collections.reverseOrder(Map.Entry.comparingByValue()));
+
+        //List<String> sortedList= sorted.collect(Collectors.toList());
+
+        //for (Map.Entry<String,Integer> e : sortedList){
+        for (String e : sortedList){
+            String str = e.toString();
+            String first = str.substring(0, str.indexOf("="));
+            int val = Integer.parseInt(str.substring(str.indexOf("=") + 1));
+
+            System.out.format("%s\t%d\t%.2f%s\n", first, val,
+                ((((float)val)/((float)total))*100), "%");
+        }
+    }
+
     public static void main(String[] args){
         // read in file or input from terminal.
         // count all occurrences of checks in a file
@@ -165,9 +204,15 @@ public class DateRegularExp{
         Matcher diecticMatcher = null;
         Matcher timeOfDayMatcher = null;
 
-        System.out.println(absoluteDateRegex + "\n");
-        System.out.println(diecticDateRegex + "\n");
-        System.out.println(timeOfDayRegex + "\n");
+        //System.out.println(absoluteDateRegex + "\n");
+        //System.out.println(diecticDateRegex + "\n");
+        //System.out.println(timeOfDayRegex + "\n");
+
+        HashMap <String, Integer> absMap = new HashMap<>();
+        HashMap <String, Integer> diecticMap = new HashMap<>();
+        HashMap <String, Integer> timeOfDayMap = new HashMap<>();
+
+        String tmp = "";
 
         try{
             BufferedReader reader = new BufferedReader(
@@ -180,24 +225,64 @@ public class DateRegularExp{
 
                 while (absMatcher.find()){
                     abs++;
-                    System.out.println(absMatcher.group());
+                    tmp = absMatcher.group();
+                    //System.out.println(tmp);
+
+                    if (absMap.containsKey(tmp)){
+                        absMap.put(tmp, absMap.get(tmp) + 1);
+                    } else {
+                        absMap.put(tmp, 1);
+                    }
                 }
                 while (diecticMatcher.find()){
                     diectic++;
-                    System.out.println(diecticMatcher.group());
+                    tmp = diecticMatcher.group();
+
+                    if (diecticMap.containsKey(tmp)){
+                        diecticMap.put(tmp, diecticMap.get(tmp) + 1);
+                    } else {
+                        diecticMap.put(tmp, 1);
+                    }
+                    //System.out.println(diecticMatcher.group());
                 }
                 while (timeOfDayMatcher.find()){
                     timeOfDay++;
+                    tmp = timeOfDayMatcher.group();
+
+                    if (timeOfDayMap.containsKey(tmp)){
+                        timeOfDayMap.put(tmp, timeOfDayMap.get(tmp) + 1);
+                    } else {
+                        timeOfDayMap.put(tmp, 1);
+                    }
                     //System.out.println(timeOfDayMatcher.group());
                 }
             }
             reader.close();
 
+            /*
             System.out.println("Absolute dates = " + abs);
             System.out.println("Diectic dates = " + diectic);
             System.out.println("Both dates = " + (abs + diectic));
             System.out.println("time-of-day expressions = " + timeOfDay);
+            */
 
+            System.out.println("2.4: Absolute");
+            printOutMap(absMap, abs);
+
+            System.out.println("\n2.5: Absolute && Diectic");
+            HashMap<String, Integer>datesMap = new HashMap<>();
+            datesMap.putAll(absMap);
+            datesMap.putAll(diecticMap);
+            printOutMap(datesMap, diectic+abs);
+
+            System.out.println("\n2.6: Time Of Day");
+            printOutMap(timeOfDayMap, timeOfDay);
+
+            System.out.println("\nAll RegExs combined");
+            HashMap<String, Integer> allMap = new HashMap<>();
+            allMap.putAll(datesMap);
+            allMap.putAll(timeOfDayMap);
+            printOutMap(allMap, timeOfDay + diectic + abs);
         } catch (Exception e){
             System.err.format("Exception occurred trying to read '%s'.",
                 filename);
