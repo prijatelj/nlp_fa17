@@ -83,7 +83,6 @@ def perplexity(lang="eng"):
 
 def main(args):
     print(perplexity(args[1]))
-    #print(perplexity())
 
 if __name__ == "__main__":
     main(sys.argv)
