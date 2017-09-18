@@ -1,0 +1,13 @@
+English:
+$ python perplexity.py eng
+total_words     = 666886735
+total trigrams  = 6590826
+perplexity      = 347413.463877
+
+French:
+$ python perplexity.py fre
+total_words    = 130843510
+total trigrams = 1378021
+perplexity     = 155763.053669
+
+English has a greater perplexity than French, based on the Google Books Ngram dataset
