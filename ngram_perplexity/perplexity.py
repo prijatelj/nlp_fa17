@@ -8,14 +8,13 @@ import numpy as np
 from google_ngram_downloader import readline_google_store as read_ngrams
 from pathos.multiprocessing import ProcessingPool
 
-def get_n_gram_counter(ngram_len=1, lang="eng"):
+def get_ngram_counter(ngram_len=1, lang="eng"):
     _, _, records = next(read_ngrams(ngram_len=ngram_len, lang=lang))
     ngram_counter = Counter()
 
     try:
         while True:
             record = next(records)
-
             # totals all ngram occurrences across years
             ngram_counter[record.ngram] += record.match_count
 
@@ -59,15 +58,14 @@ def perplexity(lang="eng"):
     dataset.
     """
     pool = ProcessingPool(4)
-    #args = list(zip([1,2], [lang] * 2))
-    #print(args)
-    unigram_counter, mgram_counter, ngram_counter= pool.map(get_n_gram_counter,
-                                              [1,4,5],
+    unigram_counter, mgram_counter, ngram_counter= pool.map(get_ngram_counter,
+                                              [1,2,3],
                                               [lang] * 3)
     pool.close()
     pool.join()
 
     total_words = np.sum(np.array(list(unigram_counter.values())))
+    print("total_words = ", total_words)
 
     ngram_conditionals = get_ngram_conditionals(ngram_counter,
                                             mgram_counter)
@@ -77,14 +75,7 @@ def perplexity(lang="eng"):
              -np.array(list(ngram_counter.values()), dtype=np.float64) \
              / total_words)
 
-    #probs = np.array(list(ngram_conditionals.values()), dtype=np.float64) \
-    #    ** (-1.0/total_words)
-
-    print("Total Zeros = ", list(probs).count(0))
-    print("total size = ", len(probs))
-
     print("probs shape = ", probs.shape)
-    print("prod = ", np.prod(probs, dtype=np.float64))
 
     PP = (np.prod(probs, dtype=np.float64))
 
