@@ -24,9 +24,9 @@ def get_n_gram_counter(ngram_len=1, lang="eng"):
 
     return ngram_counter
 
-def ngram_conditionals(ngrams, mgrams):
+def get_ngram_conditionals(ngrams, mgrams):
     """
-    Finds the conditional probabilities that a unigram is the last gram in a
+    Finds the conditional probabilities that a ngram is the last gram in a
     ngram.
 
     @param ngrams: Counter of all occurrences of ngrams in corpus
@@ -46,6 +46,9 @@ def ngram_conditionals(ngrams, mgrams):
         else:
             mgram = grams[0]
 
+        if mgram not in mgrams:
+            print("Something is wrong with the mgrams[mgram]")
+
         conditionals[ngram] = float(occurrences) / float(mgrams[mgram])
 
     return conditionals
@@ -56,24 +59,40 @@ def perplexity(lang="eng"):
     dataset.
     """
     pool = ProcessingPool(4)
-    unigram_counter, bigram_counter= pool.map(get_n_gram_counter, [1, 2])
+    #args = list(zip([1,2], [lang] * 2))
+    #print(args)
+    unigram_counter, mgram_counter, ngram_counter= pool.map(get_n_gram_counter,
+                                              [1,4,5],
+                                              [lang] * 3)
     pool.close()
     pool.join()
 
-    #unigram_counter = get_n_gram_counter(ngram_len=1, lang=lang)
-    #bigram_counter = get_n_gram_counter(ngram_len=2, lang=lang)
+    total_words = np.sum(np.array(list(unigram_counter.values())))
 
-    bigram_conditionals = ngram_conditionals(bigram_counter,
-                                             unigram_counter)
+    ngram_conditionals = get_ngram_conditionals(ngram_counter,
+                                            mgram_counter)
 
-    probs = np.array(list(bigram_conditionals.values()), dtype=np.float) ** -1
-    PP = (np.prod(probs)) ** -len(probs)
+    probs = np.power(np.array(list(ngram_conditionals.values()),
+                              dtype=np.float64),
+             -np.array(list(ngram_counter.values()), dtype=np.float64) \
+             / total_words)
+
+    #probs = np.array(list(ngram_conditionals.values()), dtype=np.float64) \
+    #    ** (-1.0/total_words)
+
+    print("Total Zeros = ", list(probs).count(0))
+    print("total size = ", len(probs))
+
+    print("probs shape = ", probs.shape)
+    print("prod = ", np.prod(probs, dtype=np.float64))
+
+    PP = (np.prod(probs, dtype=np.float64))
 
     return PP
 
 def main(args):
-    #perplexity(args[0])
-    print(perplexity())
+    print(perplexity(args[1]))
+    #print(perplexity())
 
 if __name__ == "__main__":
     main(sys.argv)
