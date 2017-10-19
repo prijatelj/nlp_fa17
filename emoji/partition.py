@@ -10,12 +10,14 @@ def partition(original_text, original_labels,
           ftest_text="ftest_text.txt", ftest_labels="ftest_labels.txt"
          ):
     with open(original_labels) as labels, open(original_text) as text, \
-             open(ftrain_text,'w') as train_text, \
-             open(ftrain_labels,'w') as train_labels, \
-             open(fdev_text,'w') as dev_text, \
-             open(fdev_labels,'w') as dev_labels, \
-             open(ftest_text,'w') as test_text, \
-             open(ftest_labels,'w') as test_labels:
+             open(ftrain_text,'w',encoding="utf-8") as train_text, \
+             open(ftrain_labels,'w',encoding="utf-8") as train_labels, \
+             open(fdev_text,'w',encoding="utf-8") as dev_text, \
+             open(fdev_labels,'w',encoding="utf-8") as dev_labels, \
+             open(ftest_text,'w',encoding="utf-8") as test_text, \
+             open(ftest_labels,'w',encoding="utf-8") as test_labels, \
+             open("baseline_dev.txt" , 'w',encoding="utf-8") as baseline_dev, \
+             open("baseline_test.txt", 'w',encoding="utf-8") as baseline_test:
         label_content = labels.readlines()
         text_content = text.readlines()
         assert len(label_content) == len(text_content)
@@ -31,9 +33,11 @@ def partition(original_text, original_labels,
             elif i < train_part + dev_part:
                 dev_text.write(line)
                 dev_labels.write(label_content[i])
+                baseline_dev.write("0\n")
             else:
                 test_text.write(line)
                 test_labels.write(label_content[i])
+                baseline_test.write("0\n")
 
 def main(args):
     partition(args[1], args[2])
