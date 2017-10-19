@@ -33,19 +33,11 @@ import tensorflow as tf
 tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
 
-def word_embed_tokenizer(sent_pairs, embedding_index):
+def word_embed_tokenizer(sents, embedding_index):
     """
-    sPreps the pair of sentences to be embedded using Keras' tokenizer.
+    Preps the sentences to be embedded using Keras' tokenizer.
     """
-    print("sent_pairs shape = ", sent_pairs.shape)
-    sents1 = sent_pairs[:, 0].tolist()
-    sents2 = sent_pairs[:, 1].tolist()
-    assert(len(sents1) == len(sents2))
-    print("sents1 shape = ", np.array(sents1).shape)
-    print("sents2 shape = ", np.array(sents2).shape)
-
-    # concatenate lists of sentences to get texts
-    texts = sents1+sents2
+    texts = sents.tolist()
 
     # calculate maximum num of words in a sentence
     max_sequence_length = 0
@@ -55,21 +47,15 @@ def word_embed_tokenizer(sent_pairs, embedding_index):
     # vectorize the text samples into a 2D integer tensor
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(texts)
-    sequences1 = tokenizer.texts_to_sequences(sents1)
-    sequences2 = tokenizer.texts_to_sequences(sents2)
+    sequences = tokenizer.texts_to_sequences(texts)
 
-    pad_seq1 = pad_sequences(sequences1, maxlen=max_sequence_length)
-    pad_seq2 = pad_sequences(sequences2, maxlen=max_sequence_length)
-
-    word_index = tokenizer.word_index
-
-    pad_seq = np.stack((pad_seq1, pad_seq2), axis=-1)
+    pad_seq = pad_sequences(sequences, maxlen=max_sequence_length)
 
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
 
     # TODO THIS IS FOR multiple class classification! NOT regressions!
-    #labels = to_categorical(np.asarray(labels))
+    labels = to_categorical(np.asarray(labels))
     print('Shape of pad_seq tensor:', pad_seq.shape)
     #print('Shape of label tensor:', labels.shape)
 
@@ -94,42 +80,11 @@ def word_embed_tokenizer(sent_pairs, embedding_index):
 
     print('Computing embeddings.')
 
-    input_shape = pad_seq1.shape[1:]
+    input_shape = pad_seq.shape[1:]
 
     sequence_input = Input(shape=input_shape, dtype='int32')
     embedded_sequences = embedding_layer(sequence_input)
 
     # Check the model if it embeds
     model = Model(sequence_input, embedded_sequences)
-    model2 = Model(sequence_input, embedded_sequences)
-
-    #return sequence_input, embedded_sequences, (pad_seq1, pad_seq2)
-    #return model, (pad_seq1, pad_seq2)
-    return (model, model2), (pad_seq1, pad_seq2)
-
-def copy_word_tokenize_embed(model):
-    assert len(model.layers) == 2
-    input_layer, embed_layer = model.layers
-
-    #config_input = input_layer.get_config()
-    input_shape = embed_layer.input_shape
-    config_embed = embed_layer.get_config()
-    weights = embed_layer.get_weights()
-
-    sequence_input = Input(shape=input_shape, dtype='int32')
-
-    #sequence_inputs = Input.from_config(config_input)
-    embedding_layer = Embedding.from_config(config_embed)
-    embedding_layer.set_weights(weights)
-
-    # Check the model if it embeds
-    return Model(sequence_input, embedded_sequences)
-
-def copy_model(model):
-    weights = []
-
-    for layer in model.layers:
-        config = layer.get_config()
-        weights = layer.get_weights()
-
-    return model_copy
+    return model, pad_seq

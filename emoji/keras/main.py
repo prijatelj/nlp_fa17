@@ -26,7 +26,6 @@ from keras.optimizers import RMSprop
 
 import sts_data_handler
 import embed_models
-import sif_embed
 
 # Flags for basic model hyper parameters
 if "epochs" not in tf.flags.FLAGS.__dict__['__flags']:
@@ -100,8 +99,7 @@ tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
 
 # flag dependencies...
-from simple_nn_models import perceptron, perceptron2, lstm
-from mv_lstm import mv_lstm
+from simple_nn_models import perceptron, lstm
 
 #Define constants for this file
 EPOCHS = FLAGS.epochs
@@ -244,8 +242,8 @@ def k_fold(data, labels, create_model, data_shape=None):
     skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True)
     total_eval = []
 
-    print("length data = ", len(data))
-    print("length labels = ", len(labels))
+    print("k_fold: length data = ", len(data))
+    print("k_fold: length labels = ", len(labels))
 
     model_name = create_model.__name__
 
@@ -363,85 +361,48 @@ def create_logs(model_name, true_test=FLAGS.test):
 
 def main(argv):
     # Embed Data based on FLAGS
-    if FLAGS.embedding == "arora" and "perceptron" in FLAGS.model:
-        if FLAGS.test:
-            try:
-                embedded_sents = np.load("data/embed_test_train_arora.npy")
-                rates = np.load("data/test_train_rates.npy")
-                test_seq = np.load("data/embed_test_arora.npy")
-                test_rates = np.load("data/test_rates.npy")
-            except IOError as ioex:
-                print(ioex)
-                print("saving files")
-                sif_embed.embed(True)
-                embedded_sents = np.load("data/embed_test_train_arora.npy")
-                rates = np.load("data/test_train_rates.npy")
-                test_seq = np.load("data/embed_test_arora.npy")
-                test_rates = np.load("data/test_rates.npy")
-        else:
-            try:
-                embedded_sents = np.load("data/embed_arora.npy")
-                rates = np.load("data/rates.npy")
-            except IOError as ioex:
-                print(ioex)
-                print("saving files")
-                sif_embed.embed()
-                embedded_sents = np.load("data/embed_arora.npy")
-                rates = np.load("data/rates.npy")
-    elif FLAGS.embedding == "keras_tokenizer" \
-            or "perceptron" not in FLAGS.model:
-        sent_pairs, rates = sts_data_handler.read_tsv()
-        embed_index = sts_data_handler.embed_index()
+    #sent_pairs, rates = sts_data_handler.read_tsv()
+    sents, labels = sts_data_handler.read_data()
+    embed_index = sts_data_handler.embed_index()
 
-        if FLAGS.test:
-            # Must tokenize together, and separate at end
-            test_pairs, test_rates = sts_data_handler.read_tsv(
-                FLAGS.sts_test_tsv)
-            #test_embed_index = sts_data_handler.embed_index()
+    if FLAGS.test:
+        # Must tokenize together, and separate at end
+        test_pairs, test_labels = sts_data_handler.read_tsv(
+            FLAGS.sts_test_tsv)
+        test_pairs, test_labels = sts_data_handler.read_data(
+            FLAGS.test_text_data,
+            FLAGS.test_label_data
+            )
 
-            train_examples = len(sent_pairs)
-            sent_pairs = np.vstack((sent_pairs, test_pairs))
-            #embed_index.update(test_embed_index)
+        train_examples = len(sents)
+        sents = np.vstack((sents, test_pairs))
 
-        embed_model, pad_seq = embed_models.word_embed_tokenizer(sent_pairs,
-                                                                 embed_index)
-        zipped = zip(pad_seq[0], pad_seq[1])
-        embedded_sents = np.array(zipped)
+    embed_model, pad_seq = embed_models.word_embed_tokenizer(sents,
+                                                             embed_index)
+    embedded_sents = np.array(pad_seq)
 
-        if FLAGS.test:
-            test_seq = embedded_sents[train_examples :]
-            embedded_sents = embedded_sents[: train_examples]
+    if FLAGS.test:
+        test_seq = embedded_sents[train_examples :]
+        embedded_sents = embedded_sents[: train_examples]
 
     print("embedded_sents.shape = ", embedded_sents.shape)
 
     if FLAGS.test:
         # Select model to run STS task with embedding
         if FLAGS.model == "perceptron":
-            final_train_test(perceptron, embedded_sents, rates,
-                             embedded_sents.shape[1:], test_seq, test_rates)
-        elif FLAGS.model == "perceptron2":
-            final_train_test(perceptron2, embedded_sents, rates,
-                             embedded_sents.shape[2:], test_seq, test_rates)
+            final_train_test(perceptron, embedded_sents, labels,
+                             embedded_sents.shape[1:], test_seq, test_labels)
         elif FLAGS.model == "lstm":
-            final_train_test(lstm, embedded_sents, rates,
+            final_train_test(lstm, embedded_sents, labels,
                              ([embedded_sents.shape[2]], embed_model),
-                             test_seq, test_rates)
-        elif FLAGS.model == "mv_lstm":
-            final_train_test(mv_lstm, embedded_sents, rates,
-                             ([embedded_sents.shape[2]], embed_model),
-                             test_seq, test_rates)
+                             test_seq, test_labels)
     else:
         # Select model to run STS task with embedding
         if FLAGS.model == "perceptron":
-            k_fold(embedded_sents, rates, perceptron, embedded_sents.shape[1:])
-        elif FLAGS.model == "perceptron2":
-            k_fold(embedded_sents, rates, perceptron2, embedded_sents.shape[2:])
+            k_fold(embedded_sents, labels, perceptron, embedded_sents.shape[1:])
         elif FLAGS.model == "lstm":
-            k_fold(embedded_sents, rates, lstm,
-                   ([embedded_sents.shape[2]], embed_model))
-        elif FLAGS.model == "mv_lstm":
-            k_fold(embedded_sents, rates, mv_lstm,
-                   ([embedded_sents.shape[2]], embed_model))
+            k_fold(embedded_sents, labels, lstm,
+                   (embedded_sents.shape, embed_model))
 
 if __name__ == "__main__":
     tf.app.run()
