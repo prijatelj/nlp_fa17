@@ -188,46 +188,28 @@ def bilstm_stack(x,
     #print("Hidden LSTM output = ", x.get_shape().as_list())
     return x
 
-def lstm((input_shape, embed_models_tup)):
+def lstm((input_shape, embed_model)):
     """
     basic LSTM model that recieves two sentences and embeds them as words and
     learns their relation.
     """
     print("input_shape = ", input_shape, " with type = ", type(input_shape))
 
-    input1 = Input(shape=input_shape)
-    input2 = Input(shape=input_shape)
-    #if FLAGS.stateful:
-        #input1 = Input(shape=input_shape, batch_shape=[BATCH_SIZE]+input_shape)
-        #input2 = Input(shape=input_shape, batch_shape=[BATCH_SIZE]+input_shape)
-
+    input = Input(shape=input_shape)
     print("input1.shape = ", input1.get_shape().as_list())
 
-    (embed_model1, embed_model2)= embed_models_tup
-
-    emb1 = embed_model1(input1)
-    emb2 = embed_model2(input2)
-
-    print("\nemb1 shape = ", emb1.get_shape().as_list(), "\n")
+    emb = embed_model(input1)
+    print("\nemb1 shape = ", emb.get_shape().as_list(), "\n")
 
     if FLAGS.bidir:
-        sent_emb1 = bilstm_stack(emb1, input_shape[-1], input_shape[0],
+        sent_emb = bilstm_stack(emb1, input_shape[-1], input_shape[0],
                                  identifier="1")
-        sent_emb2 = bilstm_stack(emb2, input_shape[-1], input_shape[0],
-                                 identifier="2")
     else:
-        sent_emb1 = lstm_stack(emb1, identifier="1")
-        sent_emb2 = lstm_stack(emb2, identifier="2")
-        #sent_emb1 = lstm_stack(emb1, input_shape[-1], input_shape[0],
-        #                        identifier="1")
-        #sent_emb2 = lstm_stack(emb2, input_shape[-1], input_shape[0],
-        #                        identifier="2")
-
-    concat = Concatenate()
-    combine = concat([sent_emb1, sent_emb2])
-    print("concat output shape = ", concat.output_shape)
+        sent_emb = lstm_stack(emb1, identifier="1")
 
 
+    # TODO REMOVE COMPARATOR, no need for it, only one input string.
+    """
     if FLAGS.comparator == "perceptron":
         if not FLAGS.sequences:
             dense = Dense(input_shape[0],
@@ -249,12 +231,11 @@ def lstm((input_shape, embed_models_tup)):
                            units=input_shape[-1] * 2,
                            sequences=False,
                            identifier="Comparator")
-
-
+    """
     predictions = Dense(1, activation='linear', name="Single_Dense")(dense)
 
-    model = Model([input1, input2], predictions)
-    opt = RMSprop(lr=FLAGS.learning_rate, clipvalue=5)
+    model = Model(input1, predictions)
+    opt = RMSprop(lr=FLAGS.learning_rate)
     model.compile(optimizer=opt,#'rmsprop',
                   loss='mean_squared_error',
                   metrics=['accuracy',
