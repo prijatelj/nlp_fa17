@@ -25,9 +25,9 @@ import tensorflow as tf
 # STS specific relative file paths
 tf.flags.DEFINE_string("sts_train_tsv", "data/17.train.tsv",
                        "tsv of train data")
-tf.flags.DEFINE_string("text_data", "data/ftext_dev_text.txt",
+tf.flags.DEFINE_string("text_data", "data/ftrain_dev_text.txt",
                        "text data")
-tf.flags.DEFINE_string("label_data", "data/flabel_dev_labels.txt",
+tf.flags.DEFINE_string("label_data", "data/ftrain_dev_labels.txt",
                        "label data")
 tf.flags.DEFINE_string("glove", "data/glove.twitter.27B.200d.txt",
                        "pretrained glove word embeddings.")

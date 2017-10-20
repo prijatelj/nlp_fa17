@@ -55,7 +55,7 @@ def word_embed_tokenizer(sents, embedding_index):
     print('Found %s unique tokens.' % len(word_index))
 
     # TODO THIS IS FOR multiple class classification! NOT regressions!
-    labels = to_categorical(np.asarray(labels))
+    #labels = to_categorical(np.asarray(labels))
     print('Shape of pad_seq tensor:', pad_seq.shape)
     #print('Shape of label tensor:', labels.shape)
 
@@ -88,3 +88,4 @@ def word_embed_tokenizer(sents, embedding_index):
     # Check the model if it embeds
     model = Model(sequence_input, embedded_sequences)
     return model, pad_seq
+    #return model, pad_seq, labels

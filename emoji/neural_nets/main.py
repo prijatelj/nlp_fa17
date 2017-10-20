@@ -15,7 +15,6 @@ from sklearn.model_selection import StratifiedKFold
 from scipy.stats import pearsonr
 import tensorflow as tf
 
-import keras.backend as K
 from keras.callbacks import TensorBoard
 from keras.layers import Input, Dense, LSTM
 from keras.layers.core import Reshape, Lambda, Flatten
@@ -23,6 +22,7 @@ from keras.layers.merge import Concatenate
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.models import Model
 from keras.optimizers import RMSprop
+from keras.utils import to_categorical
 
 import sts_data_handler
 import embed_models
@@ -373,6 +373,7 @@ def main(argv):
             FLAGS.test_text_data,
             FLAGS.test_label_data
             )
+        test_labels = to_categorical(np.asarray(test_labels))
 
         train_examples = len(sents)
         sents = np.vstack((sents, test_pairs))
@@ -380,6 +381,7 @@ def main(argv):
     embed_model, pad_seq = embed_models.word_embed_tokenizer(sents,
                                                              embed_index)
     embedded_sents = np.array(pad_seq)
+    labels = to_categorical(np.asarray(labels))
 
     if FLAGS.test:
         test_seq = embedded_sents[train_examples :]
