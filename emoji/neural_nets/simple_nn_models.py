@@ -43,7 +43,7 @@ def perceptron(input_shape):
     print(inputs.get_shape().as_list())
 
     dense = Dense(HIDDEN_NODES,
-                  activation='softmax',
+                  activation='elu',
                   kernel_initializer="he_normal")
 
     x = dense(inputs)
@@ -89,13 +89,13 @@ def lstm_stack(x,
             x = LSTM(units,
                      return_sequences=True,
                      stateful=FLAGS.stateful,
-                     activation='softmax',
+                     activation='elu',
                      name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
 
         last = LSTM(units,
                     return_sequences=False,
                     stateful=FLAGS.stateful,
-                    activation='softmax',
+                    activation='elu',
                     name="LSTM_Hidden_" + identifier + "_" + str(time_step))
         x = last(x)
 
@@ -106,7 +106,7 @@ def lstm_stack(x,
             x = LSTM(units,
                      return_sequences=True,
                      stateful=FLAGS.stateful,
-                     activation='softmax',
+                     activation='elu',
                      name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
 
     #print("Hidden LSTM output = ", x.get_shape().as_list())
@@ -127,7 +127,7 @@ def bilstm_stack(x,
             x = Bidirectional(LSTM(units,
                                    return_sequences=True,
                                    stateful=FLAGS.stateful,
-                                   activation='softmax',
+                                   activation='elu',
                                    name="Bi-LSTM_Hidden_" + identifier + "_"
                                         + str(i)),
                                    merge_mode="concat")(x)
@@ -135,7 +135,7 @@ def bilstm_stack(x,
         last = Bidirectional(LSTM(units,
                                   return_sequences=False,
                                   stateful=FLAGS.stateful,
-                                  activation='softmax',
+                                  activation='elu',
                                   name="Bi-LSTM_Hidden_" + identifier + "_"
                                        + str(time_step)),
                              merge_mode="concat")
@@ -148,7 +148,7 @@ def bilstm_stack(x,
             x = Bidirectional(LSTM(units,
                                    return_sequences=True,
                                    stateful=FLAGS.stateful,
-                                   activation='softmax',
+                                   activation='elu',
                                    name="Bi-LSTM_Hidden_" + identifier + "_"
                                         + str(i)),
                                    merge_mode="concat")(x)
@@ -168,16 +168,25 @@ def lstm(input_shape, embed_model, class_length=20):
     emb = embed_model(input1)
     print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
+    """
     if FLAGS.bidir:
         sent_emb = bilstm_stack(emb, input_shape[-1], input_shape[0],
                                  identifier="1")
     else:
         sent_emb = lstm_stack(emb, identifier="1",
-                              units=1,
+                              units=2,
                               time_step=input_shape[1]
                              )
+    """
+    #emb = TimeDistributed(
+    #    Dense(class_length*10, activation='elu', name='timed'))(emb)
+    #emb = TimeDistributed(
+    #    Dense(class_length, activation='elu', name='timed'))(emb)
+    #sigmoid_dense_timestepx10_preds
+    emb = Flatten()(emb)
+    sent_emb = Dense(class_length*10, activation='elu', name="Pain")(emb)
 
-    predictions = Dense(class_length, activation='softmax', name="Single_Dense")(sent_emb)
+    predictions = Dense(class_length, activation='sigmoid', name="Single_Dense")(sent_emb)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
@@ -185,9 +194,6 @@ def lstm(input_shape, embed_model, class_length=20):
     opt = RMSprop(lr=FLAGS.learning_rate)
     model.compile(optimizer=opt,#'rmsprop',
                   loss='categorical_crossentropy',
-                  metrics=['accuracy',
-                           'mean_squared_error',
-                           'mean_absolute_error',
-                           'mean_absolute_percentage_error'
-                          ])
+                  metrics=['accuracy', 'categorical_accuracy']
+                 )
     return model
