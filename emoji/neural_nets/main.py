@@ -24,8 +24,8 @@ from keras.models import Model
 from keras.optimizers import RMSprop
 from keras.utils import to_categorical
 
-import sts_data_handler
-import embed_models
+#import sts_data_handler
+#import embed_models
 
 # Flags for basic model hyper parameters
 if "epochs" not in tf.flags.FLAGS.__dict__['__flags']:
@@ -99,7 +99,7 @@ tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
 
 # flag dependencies...
-from simple_nn_models import perceptron, lstm
+#from simple_nn_models import perceptron, lstm
 
 #Define constants for this file
 EPOCHS = FLAGS.epochs
@@ -120,14 +120,14 @@ def only_train(model, train_data, train_labels,
         model.fit(train_data, train_labels,
                   batch_size=BATCH_SIZE,
                   epochs=EPOCHS,
-                  callbacks=[tb_callback],
-                  validation_data=(test_data,
-                                   test_labels))
+                  callbacks=[tb_callback])
     else:
         model.fit(train_data, train_labels,
                   batch_size=BATCH_SIZE,
                   epochs=EPOCHS,
-                  callbacks=[tb_callback])
+                  callbacks=[tb_callback],
+                  validation_data=(test_data,
+                                   test_labels))
 
     return model
 
@@ -136,15 +136,15 @@ def only_eval(model, test_data, test_labels):
                                   test_labels)
     pred = np.squeeze(model.predict(test_data,
                                     batch_size=BATCH_SIZE))
-    corr, _ = pearsonr(pred, test_labels)
+    #corr, _ = pearsonr(pred, test_labels)
 
-    for i, single_prediction in enumerate(pred):
-        print("{:<20} should = {:}".format(single_prediction, test_labels[i]))
-        if i == 25:
-            break
+    #for i, single_prediction in enumerate(pred):
+    #    print("{:<20} should = {:}".format(single_prediction, test_labels[i]))
+    #    if i == 25:
+    #        break
 
-    eval_results += [corr]
-    eval_metrics = model.metrics_names + ["pearsonr"]
+    #eval_results += [corr]
+    eval_metrics = model.metrics_names #+ ["pearsonr"]
     results_dict = dict(zip(eval_metrics, eval_results))
 
     return results_dict
@@ -162,20 +162,20 @@ def train_and_eval(model, train_data, train_labels, test_data, test_labels):
     results_dict.update(in_sample_results)
 
     print()
-    for key, value in results_dict.iteritems():
+    for key, value in results_dict.items():
         print(key, " = ", value)
 
     return results_dict, model
 
-def k_fold_multiprocess((i, (train, test), data, labels, data_shape,
-                        create_model, tmp_save_dir)):
+def k_fold_multiprocess(i, train, test, data, labels, data_shape,
+                        create_model, tmp_save_dir):
     """
     Helper function for multiprocess to properly detuple agruments
     """
-    return k_fold_process(i, (train, test), data, labels, data_shape,
+    return k_fold_process(i, train, test, data, labels, data_shape,
                           create_model, tmp_save_dir)
 
-def k_fold_process(i, (train, test), data, labels, data_shape, create_model,
+def k_fold_process(i, train, test, data, labels, data_shape, create_model,
                    tmp_save_dir):
     """
     processes a single loop of kfolds
@@ -251,13 +251,16 @@ def k_fold(data, labels, create_model, data_shape=None):
     tmp_save_dir = "/tmp/" + tmp_save_dir[:-4] + "/"
 
     if FLAGS.threads <= 1:
+        print("\n", skf.split(data, labels),"\n")
         for i, (train, test) in enumerate(skf.split(data, labels)):
-            total_eval.append(k_fold_process(i, (train, test), data, labels,
+            total_eval.append(k_fold_process(i, train, test, data, labels,
                 data_shape, create_model, tmp_save_dir))
     else:
+        train_split, test_split = skf.split(data,labels)
         k_fold_args = zip(
                          range(K_FOLDS),
-                         skf.split(data,labels),
+                         train_split,
+                         test_split,
                          [data] * K_FOLDS,
                          [labels] * K_FOLDS,
                          [data_shape] * K_FOLDS,
@@ -265,7 +268,8 @@ def k_fold(data, labels, create_model, data_shape=None):
                          [tmp_save_dir] * K_FOLDS
                          )
         pool = ThreadPool(FLAGS.threads)
-        total_eval = pool.map(k_fold_multiprocess, k_fold_args)
+        #total_eval = pool.map(k_fold_multiprocess, k_fold_args)
+        total_eval = pool.map(k_fold_process, k_fold_args)
         pool.close()
         pool.join()
 
@@ -381,7 +385,8 @@ def main(argv):
     embed_model, pad_seq = embed_models.word_embed_tokenizer(sents,
                                                              embed_index)
     embedded_sents = np.array(pad_seq)
-    labels = to_categorical(np.asarray(labels))
+    labels = to_categorical(labels)
+    #labels = to_categorical(np.asarray(labels))
 
     if FLAGS.test:
         test_seq = embedded_sents[train_examples :]

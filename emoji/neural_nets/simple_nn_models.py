@@ -24,8 +24,8 @@ from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.models import Model
 from keras.optimizers import RMSprop
 
-import sts_data_handler
-import embed_models
+#import sts_data_handler
+#import embed_models
 
 tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
@@ -43,7 +43,7 @@ def perceptron(input_shape):
     print(inputs.get_shape().as_list())
 
     dense = Dense(HIDDEN_NODES,
-                  activation='elu',
+                  activation='softmax',
                   kernel_initializer="he_normal")
 
     x = dense(inputs)
@@ -89,13 +89,13 @@ def lstm_stack(x,
             x = LSTM(units,
                      return_sequences=True,
                      stateful=FLAGS.stateful,
-                     activation='elu',
+                     activation='softmax',
                      name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
 
         last = LSTM(units,
                     return_sequences=False,
                     stateful=FLAGS.stateful,
-                    activation='elu',
+                    activation='softmax',
                     name="LSTM_Hidden_" + identifier + "_" + str(time_step))
         x = last(x)
 
@@ -106,7 +106,7 @@ def lstm_stack(x,
             x = LSTM(units,
                      return_sequences=True,
                      stateful=FLAGS.stateful,
-                     activation='elu',
+                     activation='softmax',
                      name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
 
     #print("Hidden LSTM output = ", x.get_shape().as_list())
@@ -127,7 +127,7 @@ def bilstm_stack(x,
             x = Bidirectional(LSTM(units,
                                    return_sequences=True,
                                    stateful=FLAGS.stateful,
-                                   activation='elu',
+                                   activation='softmax',
                                    name="Bi-LSTM_Hidden_" + identifier + "_"
                                         + str(i)),
                                    merge_mode="concat")(x)
@@ -135,7 +135,7 @@ def bilstm_stack(x,
         last = Bidirectional(LSTM(units,
                                   return_sequences=False,
                                   stateful=FLAGS.stateful,
-                                  activation='elu',
+                                  activation='softmax',
                                   name="Bi-LSTM_Hidden_" + identifier + "_"
                                        + str(time_step)),
                              merge_mode="concat")
@@ -148,38 +148,43 @@ def bilstm_stack(x,
             x = Bidirectional(LSTM(units,
                                    return_sequences=True,
                                    stateful=FLAGS.stateful,
-                                   activation='elu',
+                                   activation='softmax',
                                    name="Bi-LSTM_Hidden_" + identifier + "_"
                                         + str(i)),
                                    merge_mode="concat")(x)
     #print("Hidden LSTM output = ", x.get_shape().as_list())
     return x
 
-def lstm((input_shape, embed_model)):
+def lstm(input_shape, embed_model, class_length=20):
     """
     basic LSTM model that recieves two sentences and embeds them as words and
     learns their relation.
     """
     print("input_shape = ", input_shape, " with type = ", type(input_shape))
 
-    input = Input(shape=input_shape)
+    input1 = Input(shape=[input_shape[1]])
     print("input1.shape = ", input1.get_shape().as_list())
 
     emb = embed_model(input1)
-    print("\nemb1 shape = ", emb.get_shape().as_list(), "\n")
+    print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
     if FLAGS.bidir:
-        sent_emb = bilstm_stack(emb1, input_shape[-1], input_shape[0],
+        sent_emb = bilstm_stack(emb, input_shape[-1], input_shape[0],
                                  identifier="1")
     else:
-        sent_emb = lstm_stack(emb1, identifier="1")
+        sent_emb = lstm_stack(emb, identifier="1",
+                              units=1,
+                              time_step=input_shape[1]
+                             )
 
-    predictions = Dense(1, activation='linear', name="Single_Dense")(sent_emb)
+    predictions = Dense(class_length, activation='softmax', name="Single_Dense")(sent_emb)
+
+    print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
     opt = RMSprop(lr=FLAGS.learning_rate)
     model.compile(optimizer=opt,#'rmsprop',
-                  loss='mean_squared_error',
+                  loss='categorical_crossentropy',
                   metrics=['accuracy',
                            'mean_squared_error',
                            'mean_absolute_error',

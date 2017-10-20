@@ -45,6 +45,8 @@ def word_embed_tokenizer(sents, embedding_index):
         max_sequence_length = max(max_sequence_length, len(s.split()))
 
     # vectorize the text samples into a 2D integer tensor
+    print("\ntexts = ", type(texts) ,"\n")
+    print("text[0] = ", type(texts[0]), " ", texts[0])
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(texts)
     sequences = tokenizer.texts_to_sequences(texts)

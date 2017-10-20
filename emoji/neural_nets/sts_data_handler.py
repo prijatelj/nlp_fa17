@@ -41,7 +41,7 @@ tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
 
 def read_data(ftext=FLAGS.text_data, flabels=FLAGS.label_data):
-    with open(ftext, 'rb') as text, open(flabels, 'r') as labels:
+    with open(ftext, 'r') as text, open(flabels, 'r') as labels:
         text_content = text.readlines()
         labels_content = labels.readlines()
 
