@@ -24,7 +24,6 @@ from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.models import Model
 from keras.optimizers import RMSprop
 
-import sif_embed
 import sts_data_handler
 import embed_models
 
@@ -59,38 +58,6 @@ def perceptron(input_shape):
     predictions = Dense(1, activation='linear')(x)
 
     model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='rmsprop',
-                  loss='mean_squared_error',
-                  metrics=['accuracy',
-                           'mean_squared_error',
-                           'mean_absolute_error',
-                           'mean_absolute_percentage_error'
-                          ])
-    return model
-
-def perceptron2(input_shape):
-    input1 = Input(shape=(input_shape))
-    input2 = Input(shape=(input_shape))
-    print(input1.get_shape().as_list())
-
-    dense = Dense(HIDDEN_NODES,
-                  activation='elu',
-                  kernel_initializer="he_normal")
-
-    x1 = dense(input1)
-    x2 = dense(input2)
-
-    print("Dense weights len, len[0] = ", len(dense.get_weights()),
-          len(dense.get_weights()[0]))
-    print("Dense weights = ", dense.get_weights())
-
-    #x = Concatenate()([x1, x2])
-    x = Lambda(euclidean_distance,
-               output_shape=eucl_dist_output_shape)([x1, x2])
-
-    predictions = Dense(1, activation='elu')(x)
-
-    model = Model(inputs=[input1, input2], outputs=predictions)
     model.compile(optimizer='rmsprop',
                   loss='mean_squared_error',
                   metrics=['accuracy',
@@ -207,32 +174,7 @@ def lstm((input_shape, embed_model)):
     else:
         sent_emb = lstm_stack(emb1, identifier="1")
 
-
-    # TODO REMOVE COMPARATOR, no need for it, only one input string.
-    """
-    if FLAGS.comparator == "perceptron":
-        if not FLAGS.sequences:
-            dense = Dense(input_shape[0],
-                          activation='elu',
-                          kernel_initializer='he_normal')(combine)
-        else:
-            #TODO may need to use K.stack() on two sent_embs
-            #sent_embs = K.stack([sent_emb1, sent_emb2], axis=-1)
-            dense = TimeDistributed(Dense(input_shape[0],
-                                          activation='elu',
-                                          kernel_initializer='he_normal'),
-                                    input_shape=input_shape)(combine)
-            print("time_distributed Dense output shape = ",
-                  dense.get_shape().as_list())
-            dense = Flatten()(dense)
-    else:
-        # LSTM Sequence Comparator
-        dense = lstm_stack(combine,
-                           units=input_shape[-1] * 2,
-                           sequences=False,
-                           identifier="Comparator")
-    """
-    predictions = Dense(1, activation='linear', name="Single_Dense")(dense)
+    predictions = Dense(1, activation='linear', name="Single_Dense")(sent_emb)
 
     model = Model(input1, predictions)
     opt = RMSprop(lr=FLAGS.learning_rate)
