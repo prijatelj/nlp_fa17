@@ -6,7 +6,7 @@ how to compare the sentences.
 """
 from __future__ import print_function
 
-import os, errno
+import os, errno, sys
 import math
 from pathos.multiprocessing import ProcessingPool as ThreadPool
 
@@ -16,8 +16,9 @@ from scipy.stats import pearsonr
 import tensorflow as tf
 
 import keras.backend as K
+from keras import losses
 from keras.callbacks import TensorBoard
-from keras.layers import Input, Dense, LSTM
+from keras.layers import Input, Dense, LSTM, Dropout
 from keras.layers.core import Reshape, Lambda, Flatten
 from keras.layers.merge import Concatenate
 from keras.layers.wrappers import TimeDistributed, Bidirectional
@@ -35,82 +36,17 @@ EPOCHS = FLAGS.epochs
 BATCH_SIZE = FLAGS.batch_size
 K_FOLDS = FLAGS.kfolds
 HIDDEN_NODES = FLAGS.hidden_nodes
+HIDDEN_LAYERS= FLAGS.hidden_layers
 TIME_STEPS=FLAGS.time_steps
 
+if "threads" not in tf.flags.FLAGS.__dict__['__flags']:
+    tf.flags.DEFINE_integer("threads", 1, "Thread quantity for multiprocessing")
 
-def perceptron(input_shape):
-    inputs = Input(shape=(input_shape))
-    print(inputs.get_shape().as_list())
-
-    dense = Dense(HIDDEN_NODES,
-                  activation='elu',
-                  kernel_initializer="he_normal")
-
-    x = dense(inputs)
-
-    #TODO 2nd 300d weights are all initialized to zero, need to fix or make new
-    print("Dense weights len, len[0] = ", len(dense.get_weights()),
-          len(dense.get_weights()[0]))
-    print("Dense weights = ", dense.get_weights())
-
-    x = Reshape([HIDDEN_NODES * 2])(x)
-
-    predictions = Dense(1, activation='linear')(x)
-
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer='rmsprop',
-                  loss='mean_squared_error',
-                  metrics=['accuracy',
-                           'mean_squared_error',
-                           'mean_absolute_error',
-                           'mean_absolute_percentage_error'
-                          ])
-    return model
-
-def euclidean_distance(vects):
-    x, y = vects
-    return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True),
-                            K.epsilon()))
-
-def eucl_dist_output_shape(shapes):
-    shape1, shape2 = shapes
-    return (shape1[0], 1)
-
-def lstm_stack(x,
-                units=HIDDEN_NODES,
-                time_step=TIME_STEPS,
-                sequences=FLAGS.sequences,
-                identifier=""):
-    """
-    easy function call for creating multiple LSTMs in a stack or sequence
-    """
-    if not sequences:
-        for i in range(0, time_step-1):
-            x = LSTM(units,
-                     return_sequences=True,
-                     stateful=FLAGS.stateful,
-                     activation='elu',
-                     name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
-
-        last = LSTM(units,
-                    return_sequences=False,
-                    stateful=FLAGS.stateful,
-                    activation='elu',
-                    name="LSTM_Hidden_" + identifier + "_" + str(time_step))
-        x = last(x)
-
-        #print("x_lstm_last shape = ", x.get_shape().as_list())
-        #print("last.output_shape ", last.output_shape)
-    else:
-        for i in range(time_step):
-            x = LSTM(units,
-                     return_sequences=True,
-                     stateful=FLAGS.stateful,
-                     activation='elu',
-                     name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
-
-    #print("Hidden LSTM output = ", x.get_shape().as_list())
-    return x
+def constrained_categorical_crossentropy(ytrue, ypred):
+  #ypred = K.clip(ypred, 0.0001, 0.99999)
+  lim_zero = float(10**sys.float_info.min_10_exp)
+  ypred = K.clip(ypred, lim_zero, 1.0-lim_zero)
+  return losses.categorical_crossentropy(ytrue, ypred)
 
 def bilstm_stack(x,
                  units=HIDDEN_NODES,
@@ -155,6 +91,42 @@ def bilstm_stack(x,
     #print("Hidden LSTM output = ", x.get_shape().as_list())
     return x
 
+def lstm_stack(x,
+                units=HIDDEN_NODES,
+                time_step=TIME_STEPS,
+                sequences=FLAGS.sequences,
+                identifier=""):
+    """
+    easy function call for creating multiple LSTMs in a stack or sequence
+    """
+    if not sequences:
+        for i in range(0, time_step-1):
+            x = LSTM(units,
+                     return_sequences=True,
+                     stateful=FLAGS.stateful,
+                     activation='elu',
+                     name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
+
+        last = LSTM(units,
+                    return_sequences=False,
+                    stateful=FLAGS.stateful,
+                    activation='elu',
+                    name="LSTM_Hidden_" + identifier + "_" + str(time_step))
+        x = last(x)
+
+        #print("x_lstm_last shape = ", x.get_shape().as_list())
+        #print("last.output_shape ", last.output_shape)
+    else:
+        for i in range(time_step):
+            x = LSTM(units,
+                     return_sequences=True,
+                     stateful=FLAGS.stateful,
+                     activation='elu',
+                     name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
+
+    #print("Hidden LSTM output = ", x.get_shape().as_list())
+    return x
+
 def lstm(input_shape, embed_model, class_length=20):
     """
     basic LSTM model that recieves two sentences and embeds them as words and
@@ -168,32 +140,92 @@ def lstm(input_shape, embed_model, class_length=20):
     emb = embed_model(input1)
     print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
-    """
+    #"""
     if FLAGS.bidir:
-        sent_emb = bilstm_stack(emb, input_shape[-1], input_shape[0],
+        emb = bilstm_stack(emb, input_shape[-1], input_shape[0],
                                  identifier="1")
     else:
-        sent_emb = lstm_stack(emb, identifier="1",
-                              units=2,
-                              time_step=input_shape[1]
-                             )
-    """
-    #emb = TimeDistributed(
-    #    Dense(class_length*10, activation='elu', name='timed'))(emb)
-    #emb = TimeDistributed(
-    #    Dense(class_length, activation='elu', name='timed'))(emb)
-    #sigmoid_dense_timestepx10_preds
-    emb = Flatten()(emb)
-    sent_emb = Dense(class_length*10, activation='elu', name="Pain")(emb)
-
-    predictions = Dense(class_length, activation='sigmoid', name="Single_Dense")(sent_emb)
+        emb = lstm_stack(emb,
+                         time_step=input_shape[1]
+                        )
+    predictions = Dense(class_length,
+                        activation='sigmoid',
+                        name="Single_Dense")(emb)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
     opt = RMSprop(lr=FLAGS.learning_rate)
-    model.compile(optimizer=opt,#'rmsprop',
-                  loss='categorical_crossentropy',
+    model.compile(optimizer=opt,
+                  loss=constrained_categorical_crossentropy,
+                  metrics=['accuracy', 'categorical_accuracy']
+                 )
+    return model
+
+def dense(input_shape, embed_model, class_length=20):
+    """
+    """
+    print("input_shape = ", input_shape, " with type = ", type(input_shape))
+
+    input1 = Input(shape=[input_shape[1]])
+    print("input1.shape = ", input1.get_shape().as_list())
+
+    emb = embed_model(input1)
+    print("\nemb shape = ", emb.get_shape().as_list(), "\n")
+
+    #emb = TimeDistributed(
+    #    Dense(class_length, activation='elu', name='timed'))(emb)
+    emb = Flatten()(emb)
+    for i in range(FLAGS.hidden_layers):
+        #emb = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(emb)
+        if FLAGS.dropout_rate != 0:
+            emb = Dropout(FLAGS.dropout_rate)(emb)
+
+    #emb = Flatten()(emb)
+    predictions = Dense(class_length,
+                        activation='sigmoid',
+                        name="Single_Dense")(emb)
+
+    print("predictions.shape = ", predictions.get_shape().as_list())
+
+    model = Model(input1, predictions)
+    opt = RMSprop(lr=FLAGS.learning_rate)
+    model.compile(optimizer=opt,
+                  loss=constrained_categorical_crossentropy,
+                  metrics=['accuracy', 'categorical_accuracy']
+                 )
+    return model
+
+def conv(input_shape, embed_model, class_length=20):
+    """
+    """
+    print("input_shape = ", input_shape, " with type = ", type(input_shape))
+
+    input1 = Input(shape=[input_shape[1]])
+    print("input1.shape = ", input1.get_shape().as_list())
+
+    emb = embed_model(input1)
+    print("\nemb shape = ", emb.get_shape().as_list(), "\n")
+
+    #emb = TimeDistributed(
+    #    Dense(class_length, activation='elu', name='timed'))(emb)
+    #emb = Flatten()(emb)
+    #for i in range(FLAGS.hidden_layers):
+    #    emb = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(emb)
+    #    if FLAGS.dropout_rate != 0:
+    #        emb = Dropout(FLAGS.dropout_rate)(emb)
+    #emb = Flatten()(emb)
+
+    predictions = Dense(class_length,
+                        activation='sigmoid',
+                        name="Single_Dense")(emb)
+
+    print("predictions.shape = ", predictions.get_shape().as_list())
+
+    model = Model(input1, predictions)
+    opt = RMSprop(lr=FLAGS.learning_rate)
+    model.compile(optimizer=opt,
+                  loss=constrained_categorical_crossentropy,
                   metrics=['accuracy', 'categorical_accuracy']
                  )
     return model

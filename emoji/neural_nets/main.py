@@ -46,8 +46,14 @@ if "kfolds" not in tf.flags.FLAGS.__dict__['__flags']:
 
 # Flags determining the specifics of parts of the model
 if "hidden_nodes" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_integer("hidden_nodes", 300,
+    tf.flags.DEFINE_integer("hidden_nodes", 200,
                             "The number of folds for k-fold cross entropy.")
+if "hidden_layers" not in tf.flags.FLAGS.__dict__['__flags']:
+    tf.flags.DEFINE_integer("hidden_layers", 25,
+                            "The number of folds for k-fold cross entropy.")
+if "dropout_rate" not in tf.flags.FLAGS.__dict__['__flags']:
+    tf.flags.DEFINE_float("dropout_rate", 0.0,
+                            "Dropout rates probability.")
 
 # For LSTMs
 if "time_steps" not in tf.flags.FLAGS.__dict__['__flags']:
@@ -65,10 +71,10 @@ if "bidir" not in tf.flags.FLAGS.__dict__['__flags']:
 
 # Flags that determine the model being run
 if "model" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_string("model", "perceptron",
+    tf.flags.DEFINE_string("model", "dense",
                            "The name of the simple_nn_model to run")
 if "embedding" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_string("embedding", "arora",
+    tf.flags.DEFINE_string("embedding", "glove",
                            "The name of the simple_nn_model to run")
 if "comparator" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_string("comparator", "perceptron",
@@ -117,19 +123,19 @@ def only_train(model, train_data, train_labels,
                               write_images=True)
 
     if test_data is None or test_labels is None:
-        model.fit(train_data, train_labels,
+        history = model.fit(train_data, train_labels,
                   batch_size=BATCH_SIZE,
                   epochs=EPOCHS,
                   callbacks=[tb_callback])
     else:
-        model.fit(train_data, train_labels,
+         history = model.fit(train_data, train_labels,
                   batch_size=BATCH_SIZE,
                   epochs=EPOCHS,
                   callbacks=[tb_callback],
                   validation_data=(test_data,
                                    test_labels))
 
-    return model
+    return model, history
 
 def only_eval(model, test_data, test_labels):
     eval_results = model.evaluate(test_data,
@@ -150,266 +156,18 @@ def only_eval(model, test_data, test_labels):
     return results_dict
 
 def train_and_eval(model, train_data, train_labels, test_data, test_labels):
-    model = only_train(model, train_data, train_labels, test_data, test_labels)
-    print("\nIn-Sample Evaluation:")
-    in_sample_results = only_eval(model, train_data, train_labels)
-    print("\nOut-of-Sample Evaluation:")
-    results_dict = only_eval(model, test_data, test_labels)
+    model, history = only_train(
+        model, train_data, train_labels, test_data, test_labels)
 
-    # change in-sample dict key names to avoid overwriting
-    for key in in_sample_results.keys():
-        in_sample_results["IS_" + key] = in_sample_results.pop(key)
-    results_dict.update(in_sample_results)
+    results_dict = history.history
+    for k, v in results_dict.items():
+        results_dict[k] = v[-1]
 
     print()
     for key, value in results_dict.items():
         print(key, " = ", value)
 
     return results_dict, model
-
-def k_fold_multiprocess(i, train, test, data, labels, data_shape,
-                        create_model, tmp_save_dir):
-    """
-    Helper function for multiprocess to properly detuple agruments
-    """
-    return k_fold_process(i, train, test, data, labels, data_shape,
-                          create_model, tmp_save_dir)
-
-def k_fold_process(i, train, test, data, labels, data_shape, create_model,
-                   tmp_save_dir):
-    """
-    processes a single loop of kfolds
-    """
-    print("Running Fold", i+1, "/", K_FOLDS)
-    model = None # Clearing the NN.
-    model = create_model(data_shape)
-    model_name = create_model.__name__
-
-    if model_name == "perceptron":
-        train_data = data[train]
-        test_data = data[test]
-    else:
-        train_data = [data[train, 0, :], data[train, 1, :]]
-        test_data = [data[test, 0, :], data[test, 1, :]]
-
-
-    print("data type = ", type(data))
-    print("labels type = ", type(labels))
-    print("train type = ", type(train))
-
-    results, trained_model = train_and_eval(model,
-                       train_data, labels[train],
-                       test_data, labels[test])
-                       #steps=(math.ceil(len(train)/BATCH_SIZE),
-                       #       math.ceil(len(test)/BATCH_SIZE)))
-
-    saved_model_dir, saved_model_file = create_logs(model_name)
-    saved_model_file = saved_model_file[:-3] + "h5py"
-
-    print("saved_mode_file: " , saved_model_file)
-    print("saved_mode_file/ ",
-          saved_model_file[:(saved_model_file.rfind("/")+1)])
-    try:
-        os.makedirs(saved_model_dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    trained_model.save(saved_model_file)
-
-    tmp_save_file = str(i) + "Fold.csv"
-    try:
-        os.makedirs(tmp_save_dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    with open(tmp_save_dir + tmp_save_file, 'w') as tmp:
-        for i, (key, value) in enumerate(results.iteritems()):
-            tmp.write(key + "," + str(value))
-            if i < len(results) - 1:
-                tmp.write("\n")
-    return results
-
-def k_fold(data, labels, create_model, data_shape=None):
-    """
-    performs k-fold cross-entropy on provided data and model.
-
-    @param data: data to be split by k-fold cross entropy
-    @param labels: labels/targets of data
-    @param create_model: pointer to function that creates model
-    @param data_shape: shape of data for passing to create_model, or a pre-built
-        model that is to be built upon further
-    """
-    skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True)
-    total_eval = []
-
-    print("k_fold: length data = ", len(data))
-    print("k_fold: length labels = ", len(labels))
-
-    model_name = create_model.__name__
-
-    _, tmp_save_dir = create_logs(model_name)
-    tmp_save_dir = "/tmp/" + tmp_save_dir[:-4] + "/"
-
-    if FLAGS.threads <= 1:
-        print("\n", skf.split(data, labels),"\n")
-        for i, (train, test) in enumerate(skf.split(data, labels)):
-            total_eval.append(k_fold_process(i, train, test, data, labels,
-                data_shape, create_model, tmp_save_dir))
-    else:
-        train_split, test_split = skf.split(data,labels)
-        k_fold_args = zip(
-                         range(K_FOLDS),
-                         train_split,
-                         test_split,
-                         [data] * K_FOLDS,
-                         [labels] * K_FOLDS,
-                         [data_shape] * K_FOLDS,
-                         [create_model] * K_FOLDS,
-                         [tmp_save_dir] * K_FOLDS
-                         )
-        pool = ThreadPool(FLAGS.threads)
-        #total_eval = pool.map(k_fold_multiprocess, k_fold_args)
-        total_eval = pool.map(k_fold_process, k_fold_args)
-        pool.close()
-        pool.join()
-
-    values = []
-    for results in total_eval:
-        values.append(results.values())
-    mean = np.mean(values, axis=0)
-    results_dict = dict(zip(total_eval[0].keys(), mean))
-
-    log_dir, log_file = create_logs(model_name)
-
-    print("\nOverall Metrics: " + log_dir + log_file)
-    for key, value in results_dict.iteritems():
-        print(key, " = ", value)
-
-    try:
-        os.makedirs(log_dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    with open(log_dir + log_file, 'w') as log:
-        for i, (key, value) in enumerate(results_dict.iteritems()):
-            log.write(key + "," + str(value))
-            if i < len(results_dict) - 1:
-                log.write("\n")
-
-def final_train_test(create_model, train_data, train_labels, data_shape,
-                     test_data, test_labels):
-    data = np.append(train_data, test_data, axis=0)
-    labels = np.append(train_labels, test_labels, axis=0)
-    train = range(len(train_data))
-    test = range(len(train_data), len(train_data) + len(test_data))
-    model_name = create_model.__name__
-
-    # create temporary save directory
-    _, tmp_save_dir = create_logs(model_name)
-    tmp_save_dir = "/tmp/" + tmp_save_dir[:-4] + "/"
-
-    print("Training and Testing has begun.")
-    results = k_fold_process(0, (train, test), data, labels, data_shape,
-                             create_model, tmp_save_dir)
-
-    log_dir, log_file = create_logs(model_name)
-
-    print("\nOverall Metrics: " + log_dir + log_file)
-    for key, value in results.iteritems():
-        print(key, " = ", value)
-
-    try:
-        os.makedirs(log_dir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    with open(log_dir + log_file, 'w') as log:
-        for i, (key, value) in enumerate(results.iteritems()):
-            log.write(key + "," + str(value))
-            if i < len(results) - 1:
-                log.write("\n")
-
-def create_logs(model_name, true_test=FLAGS.test):
-    log_dir = FLAGS.results_dir
-
-    if true_test:
-        log_dir += "Test/"
-
-    log_dir +=  model_name + "/" + FLAGS.embedding + "/"
-
-    if not true_test:
-        log_dir += str(K_FOLDS) + "_folds/"
-
-    log_dir += str(EPOCHS) + "_epochs/" + str(FLAGS.learning_rate) \
-               + "_learning_rate/"
-
-    if FLAGS.train_embed:
-        log_dir += "embeddings_trained/"
-
-    if model_name == "lstm":
-        if FLAGS.sequences:
-            log_dir += "sequences/"
-        if FLAGS.stateful:
-            log_dir += "stateful/"
-        if FLAGS.bidir:
-            log_dir += "bidirectional/"
-
-    if model_name == "mv_lstm":
-        log_dir += FLAGS.sim_func + "/" + str(FLAGS.kpools) + "_pools/"
-
-    log_file =  str(HIDDEN_NODES) + "dense_" +  str(TIME_STEPS) \
-        + "timesteps_" + MODEL_ID + "_" \
-        + str(datetime.now()).replace(' ', "-at-").replace(":", "-") + ".csv"
-
-    return log_dir, log_file
-
-def main(argv):
-    # Embed Data based on FLAGS
-    #sent_pairs, rates = sts_data_handler.read_tsv()
-    sents, labels = sts_data_handler.read_data()
-    embed_index = sts_data_handler.embed_index()
-
-    if FLAGS.test:
-        # Must tokenize together, and separate at end
-        test_pairs, test_labels = sts_data_handler.read_tsv(
-            FLAGS.sts_test_tsv)
-        test_pairs, test_labels = sts_data_handler.read_data(
-            FLAGS.test_text_data,
-            FLAGS.test_label_data
-            )
-        test_labels = to_categorical(np.asarray(test_labels))
-
-        train_examples = len(sents)
-        sents = np.vstack((sents, test_pairs))
-
-    embed_model, pad_seq = embed_models.word_embed_tokenizer(sents,
-                                                             embed_index)
-    embedded_sents = np.array(pad_seq)
-    labels = to_categorical(labels)
-    #labels = to_categorical(np.asarray(labels))
-
-    if FLAGS.test:
-        test_seq = embedded_sents[train_examples :]
-        embedded_sents = embedded_sents[: train_examples]
-
-    print("embedded_sents.shape = ", embedded_sents.shape)
-
-    if FLAGS.test:
-        # Select model to run STS task with embedding
-        if FLAGS.model == "perceptron":
-            final_train_test(perceptron, embedded_sents, labels,
-                             embedded_sents.shape[1:], test_seq, test_labels)
-        elif FLAGS.model == "lstm":
-            final_train_test(lstm, embedded_sents, labels,
-                             ([embedded_sents.shape[2]], embed_model),
-                             test_seq, test_labels)
-    else:
-        # Select model to run STS task with embedding
-        if FLAGS.model == "perceptron":
-            k_fold(embedded_sents, labels, perceptron, embedded_sents.shape[1:])
-        elif FLAGS.model == "lstm":
-            k_fold(embedded_sents, labels, lstm,
-                   (embedded_sents.shape, embed_model))
 
 if __name__ == "__main__":
     tf.app.run()

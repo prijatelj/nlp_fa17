@@ -1,18 +1,48 @@
 """
 Hopefully simple implementation of an LSTM for multi classification of Emoji
 prediciton given tweet text.
+
+@author: Derek S. Prijatelj
 """
 
+from datetime import datetime
 from neural_nets import sts_data_handler, embed_models, main
-from neural_nets.simple_nn_models import lstm
+from neural_nets.simple_nn_models import lstm, dense, conv
 import tensorflow as tf
 import numpy as np
 from keras.utils import to_categorical
 from keras.models import model_from_json
 from scipy.stats import pearsonr
 
+if "timestamp" not in tf.flags.FLAGS.__dict__['__flags']:
+    tf.flags.DEFINE_boolean("timestamp", True,
+                            "appends date and time to model name")
+
 tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
+
+# python simple.py --flag_name=VALUE ...
+MODEL_NAME = "" if FLAGS.model_id == "" else FLAGS.model_id + "_"
+MODEL_NAME +=(
+              "Model-" + str(FLAGS.model)
+              +"_HiddenLayers-" + str(FLAGS.hidden_layers)
+              +"_HiddenNodes-" + str(FLAGS.hidden_nodes)
+              +"_TrainEmbed-" + str(FLAGS.train_embed)
+              +"_LearnRate-" + str(FLAGS.learning_rate)
+              +"_Epochs-" + str(FLAGS.epochs)
+              +"_BatchSize-" + str(FLAGS.batch_size)
+             )
+
+if FLAGS.time_steps != 1:
+    MODEL_NAME += "_TimeStep-" + str(FLAGS.time_steps)
+
+if FLAGS.dropout_rate != 0:
+    MODEL_NAME += "_DropoutRate-" + str(FLAGS.dropout_rate)
+
+if FLAGS.timestamp:
+    MODEL_NAME += "__" + str(datetime.now()).replace(' ', "-at-").replace(":", "-")
+
+print("Train, Evalutate, Test: ", MODEL_NAME)
 
 # get data
 train_texts, train_labels = sts_data_handler.read_data(
@@ -43,7 +73,6 @@ embed_index = sts_data_handler.embed_index()
 # Make Model
 # embed
 texts = np.append(train_texts, np.append(dev_texts, test_texts))
-
 embed_model, pad_seq = embed_models.word_embed_tokenizer(texts,
                                                          embed_index)
 embedded_sents = np.array(pad_seq)
@@ -60,24 +89,28 @@ test_labels = to_categorical(test_labels, 20)
 print("train_labels")
 print(train_labels)
 
-# lstm
-lstm_model = lstm(train_texts.shape, embed_model, dev_labels.shape[1])
+# Classification Model
+if FLAGS.model == "lstm":
+    classification_model = lstm(train_texts.shape, embed_model, dev_labels.shape[1])
+elif FLAGS.model == "dense":
+    classification_model = dense(train_texts.shape, embed_model, dev_labels.shape[1])
+elif FLAGS.model == "conv":
+    classification_model = conv(train_texts.shape, embed_model, dev_labels.shape[1])
 
 # Train
-
 results_dict, trained_model = main.train_and_eval(
-    lstm_model,
+    classification_model,
     train_texts,
     train_labels,
     dev_texts,
     dev_labels)
 
-#trained_model = main.only_train(lstm_model, train_texts, train_labels)
-
+# Save model
 trained_model_json = trained_model.to_json()
-with open("trained_model_" + FLAGS.model_id + ".json", "w") as json_file:
+with open("trained_model_json/" + MODEL_NAME + ".json", "w") as json_file:
     json_file.write(trained_model_json)
-trained_model.save_weights("trained_model_" + FLAGS.model_id +".h5")
+trained_model.save_weights("trained_model_h5/" + MODEL_NAME +".h5")
+
 """
 with open("trained_modeltrained_via_dev_1epoch_longrun.json", 'r') as json_file:
     trained_model_json = json_file.read()
@@ -86,6 +119,7 @@ trained_model.load_weights("trained_model_trained_via_dev_1epoch_longrun.h5")
 trained_model.compile(loss="categorical_crossentropy", optimizer="rmsprop",
     metrics=["accuracy"])
 #"""
+
 # Test
 def test_eval(model, test_data, test_labels):
     eval_results = model.evaluate(test_data,
@@ -93,15 +127,8 @@ def test_eval(model, test_data, test_labels):
     pred = np.squeeze(model.predict(test_data,
                                     batch_size=1))
 
-    #for i, single_prediction in enumerate(pred):
-    #    print("{:<20} should = {:}".format(np.array_str(single_prediction), np.array_str(test_labels[i])))
-    #    if i == 25:
-    #        break
-
-    #eval_results += [corr]
-    eval_metrics = model.metrics_names #+ ["pearsonr"]
+    eval_metrics = model.metrics_names
     results_dict = dict(zip(eval_metrics, eval_results))
-
     return results_dict, pred
 
 print("\nTEST:\n")
@@ -112,7 +139,7 @@ for key, value in test_results_dict.items():
     print(key, " = ", value)
 
 # save output file
-with open("results/" + FLAGS.model_id + "_preds.txt", "w") as pred_file:
+with open("results/" + MODEL_NAME + "_TestPredictions.txt", "w") as pred_file:
     for p in pred:
         #print(np.array_str(p))
         p = p.tolist()

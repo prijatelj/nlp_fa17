@@ -1,0 +1,10 @@
+Derek S. Prijatelj
+
+Evaluation of baseline and my single hidden layer Dense Network. I used Glove 200d word vectors for generalization, and these word vectors were based on Twitter data, as they provide it on their website. My model is approximately 7% more accurate than the baseline. The low performance is due to lack of time to train model and lack of sophistication in model to ensure it trained fast for the due date. It can be significantly improved.
+
+
+$ python accuracy.py data/ftest_labels.txt data/baseline_test.txt
+accuracy =  0.20992
+
+$ python accuracy.py data/ftest_labels.txt results/Dense-Drop_HiddenLayers-25_HiddenNodes-400_TrainEmbed-True_LearnRate-0.0001_Epochs-5_BatchSize-1000_DropoutRate-0.01__2017-10-26-at-00-41-39.107379_TestPredictions.txt
+accuracy =  0.28256
