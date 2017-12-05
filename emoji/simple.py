@@ -2,6 +2,14 @@
 Hopefully simple implementation of an LSTM for multi classification of Emoji
 prediciton given tweet text.
 
+Example on how to run this with flags in cli:
+
+python simple.py --train_embed=True --epochs=100 --batch_size=100 `
+--hidden_layers=25 --hidden_nodes=200 --model="dense"
+
+Extra or specific flags:
+--dropout_rate=0.0 --learning_rate=1e-3
+
 @author: Derek S. Prijatelj
 """
 
@@ -40,7 +48,8 @@ if FLAGS.dropout_rate != 0:
     MODEL_NAME += "_DropoutRate-" + str(FLAGS.dropout_rate)
 
 if FLAGS.timestamp:
-    MODEL_NAME += "__" + str(datetime.now()).replace(' ', "-at-").replace(":", "-")
+    MODEL_NAME += "__" + \
+        str(datetime.now()).replace(' ', "-at-").replace(":", "-")
 
 print("Train, Evalutate, Test: ", MODEL_NAME)
 
@@ -91,11 +100,14 @@ print(train_labels)
 
 # Classification Model
 if FLAGS.model == "lstm":
-    classification_model = lstm(train_texts.shape, embed_model, dev_labels.shape[1])
+    classification_model = lstm(
+        train_texts.shape, embed_model, dev_labels.shape[1])
 elif FLAGS.model == "dense":
-    classification_model = dense(train_texts.shape, embed_model, dev_labels.shape[1])
+    classification_model = dense(
+        train_texts.shape, embed_model, dev_labels.shape[1])
 elif FLAGS.model == "conv":
-    classification_model = conv(train_texts.shape, embed_model, dev_labels.shape[1])
+    classification_model = conv(
+        train_texts.shape, embed_model, dev_labels.shape[1])
 
 # Train
 results_dict, trained_model = main.train_and_eval(
@@ -125,7 +137,7 @@ def test_eval(model, test_data, test_labels):
     eval_results = model.evaluate(test_data,
                                   test_labels)
     pred = np.squeeze(model.predict(test_data,
-                                    batch_size=1))
+                                    batch_size=FLAGS.batch_size))
 
     eval_metrics = model.metrics_names
     results_dict = dict(zip(eval_metrics, eval_results))
@@ -135,11 +147,13 @@ print("\nTEST:\n")
 test_results_dict, pred = test_eval(trained_model, test_texts, test_labels)
 #test_results_dict = test_eval(trained_model, test_texts, test_labels)
 print("Test results:")
-for key, value in test_results_dict.items():
-    print(key, " = ", value)
+with open("results/" + MODEL_NAME + "_TestResults.txt", "w") as res_file:
+    for k, v in test_results_dict.items():
+        res_file.write(str(k) + " = " + str(v) + "\n")
+        print(k, " = ", v)
 
 # save output file
-with open("results/" + MODEL_NAME + "_TestPredictions.txt", "w") as pred_file:
+with open("results/predictions/" + MODEL_NAME + "_TestPredictions.txt", "w") as pred_file:
     for p in pred:
         #print(np.array_str(p))
         p = p.tolist()

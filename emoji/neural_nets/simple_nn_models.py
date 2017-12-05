@@ -107,6 +107,9 @@ def lstm_stack(x,
                      activation='elu',
                      name="LSTM_Hidden_" + identifier + "_" + str(i))(x)
 
+            if FLAGS.dropout_rate != 0:
+                x = Dropout(FLAGS.dropout_rate)(x)
+
         last = LSTM(units,
                     return_sequences=False,
                     stateful=FLAGS.stateful,
@@ -155,7 +158,8 @@ def lstm(input_shape, embed_model, class_length=20):
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = RMSprop(lr=FLAGS.learning_rate)
+    #opt = RMSprop(lr=FLAGS.learning_rate)
+    opt = RMSprop()
     model.compile(optimizer=opt,
                   loss=constrained_categorical_crossentropy,
                   metrics=['accuracy', 'categorical_accuracy']
@@ -189,7 +193,8 @@ def dense(input_shape, embed_model, class_length=20):
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = RMSprop(lr=FLAGS.learning_rate)
+    #opt = RMSprop(lr=FLAGS.learning_rate)
+    opt = RMSprop()
     model.compile(optimizer=opt,
                   loss=constrained_categorical_crossentropy,
                   metrics=['accuracy', 'categorical_accuracy']
@@ -223,7 +228,8 @@ def conv(input_shape, embed_model, class_length=20):
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = RMSprop(lr=FLAGS.learning_rate)
+    #opt = RMSprop(lr=FLAGS.learning_rate)
+    opt = RMSprop()
     model.compile(optimizer=opt,
                   loss=constrained_categorical_crossentropy,
                   metrics=['accuracy', 'categorical_accuracy']
