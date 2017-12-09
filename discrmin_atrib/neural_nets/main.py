@@ -8,11 +8,8 @@ from __future__ import print_function
 import os, errno
 import math
 from datetime import datetime
-from pathos.multiprocessing import ProcessingPool as ThreadPool
 
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from scipy.stats import pearsonr
 import tensorflow as tf
 
 from keras.callbacks import TensorBoard
@@ -41,12 +38,12 @@ if "batch_size" not in tf.flags.FLAGS.__dict__['__flags']:
 if "learning_rate" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_float("learning_rate", 1e-3, "Learning rate of optimizer")
 if "kfolds" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_integer("kfolds", 10,
+    tf.flags.DEFINE_integer("kfolds", 0,
                             "The number of folds for k-fold cross entropy.")
 
 # Flags determining the specifics of parts of the model
 if "hidden_nodes" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_integer("hidden_nodes", 200,
+    tf.flags.DEFINE_integer("hidden_nodes", 300,
                             "The number of folds for k-fold cross entropy.")
 if "hidden_layers" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_integer("hidden_layers", 25,
@@ -142,15 +139,8 @@ def only_eval(model, test_data, test_labels):
                                   test_labels)
     pred = np.squeeze(model.predict(test_data,
                                     batch_size=BATCH_SIZE))
-    #corr, _ = pearsonr(pred, test_labels)
 
-    #for i, single_prediction in enumerate(pred):
-    #    print("{:<20} should = {:}".format(single_prediction, test_labels[i]))
-    #    if i == 25:
-    #        break
-
-    #eval_results += [corr]
-    eval_metrics = model.metrics_names #+ ["pearsonr"]
+    eval_metrics = model.metrics_names
     results_dict = dict(zip(eval_metrics, eval_results))
 
     return results_dict

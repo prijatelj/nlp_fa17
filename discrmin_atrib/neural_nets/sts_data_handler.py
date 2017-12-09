@@ -22,6 +22,10 @@ from keras.callbacks import TensorBoard
 # Purely for their FLAGs handling, will replace with personal argparse later.
 import tensorflow as tf
 
+#from conceptnet5.language.lemmatize import lemmatize
+#from lemmatize  import lemmatize
+from nltk.stem.wordnet import WordNetLemmatizer
+
 # STS specific relative file paths
 tf.flags.DEFINE_string("sts_train_tsv", "data/17.train.tsv",
                        "tsv of train data")
@@ -40,21 +44,48 @@ tf.flags.FLAGS._parse_flags()
 
 FLAGS = tf.flags.FLAGS
 
-def read_data(ftext=FLAGS.text_data, flabels=FLAGS.label_data):
-    with open(ftext, 'r') as text, open(flabels, 'r') as labels:
-        text_content = text.readlines()
-        labels_content = labels.readlines()
+#def read_data(ftext=FLAGS.text_data, flabels=FLAGS.label_data):
+def read_data(ftext=FLAGS.text_data):
+    with open(ftext, 'r') as dat_csv:
+        csv_reader = csv.reader(dat_csv)
 
-        assert len(text_content) == len(labels_content)
+        pivot = []
+        comparison = []
+        feature =[]
+        label = []
 
-        return np.array(text_content), np.array(labels_content)
+        lemmatize = WordNetLemmatizer().lemmatize # TODO use ConceptNet Lemmas
 
-def embed_index(glove_dir=FLAGS.glove):
+        for row in csv_reader:
+            #pivot.append(lemmatize("en", row[0], "n")[0])
+            #comparison.append(lemmatize("en", row[1], "n")[0])
+            #feature.append(lemmatize("en", row[2], "n")[0])
+            #label.append(lemmatize("en", row[3], "n")[0])
+
+            pivot.append(lemmatize(row[0]))
+            comparison.append(lemmatize(row[1]))
+            feature.append(lemmatize(row[2]))
+            label.append(lemmatize(row[3]))
+
+        return (np.array(pivot),
+               np.array(comparison),
+               np.array(feature),
+               np.array(label))
+
+def embed_index(embed_dir=FLAGS.glove):
     embeddings_index = {}
-    with open(glove_dir) as f:
+    with open(embed_dir) as f:
+        first = True
         for line in f:
+            if first:
+                first = False
+                continue
             values = line.split()
             word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            embeddings_index[word] = coefs
+            idx = word.rfind("/")
+            if idx != -1:
+                word = word[(idx + 1):]
+            if "_" not in word: # do not include ConceptNet's multi word embeds
+                coefs = np.asarray(values[1:], dtype='float32')
+                embeddings_index[word] = coefs
     return embeddings_index
