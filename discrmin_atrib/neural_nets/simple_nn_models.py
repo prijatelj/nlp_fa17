@@ -170,30 +170,20 @@ def dense(input_shape, embed_model, class_length=20):
     """
     """
     print("input_shape = ", input_shape, " with type = ", type(input_shape))
-
     input1 = Input(shape=[input_shape[1]])
     print("input1.shape = ", input1.get_shape().as_list())
 
     emb = embed_model(input1)
     print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
-    #emb = TimeDistributed(
-    #    Dense(class_length, activation='elu', name='timed'))(emb)
     emb = Flatten()(emb)
-    for i in range(FLAGS.hidden_layers):
-        #emb = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(emb)
-        if FLAGS.dropout_rate != 0:
-            emb = Dropout(FLAGS.dropout_rate)(emb)
-
-    #emb = Flatten()(emb)
     predictions = Dense(class_length,
                         activation='sigmoid',
-                        name="Single_Dense")(emb)
+                        name="Single_Dense_Pred")(emb)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    #opt = RMSprop(lr=FLAGS.learning_rate)
     opt = RMSprop()
     model.compile(optimizer=opt,
                   loss=constrained_categorical_crossentropy,

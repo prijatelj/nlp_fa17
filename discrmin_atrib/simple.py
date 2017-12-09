@@ -119,13 +119,13 @@ def train_test(train_data, train_labels,
     # Classification Model
     if FLAGS.model == "lstm":
         classification_model = lstm(
-            train_data.shape, embed_model, 2)
+            train_data.shape, embed_model, 1)
     elif FLAGS.model == "dense":
         classification_model = dense(
-            train_data.shape, embed_model, 2)
+            train_data.shape, embed_model, 1)
     elif FLAGS.model == "conv":
         classification_model = conv(
-            train_data.shape, embed_model, 2)
+            train_data.shape, embed_model, 1)
 
     print("\n train_data length ", len(train_data))
     print("\n train_labels length ", len(train_labels))
