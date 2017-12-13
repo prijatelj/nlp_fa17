@@ -159,7 +159,8 @@ def lstm(input_shape, embed_model, class_length=20):
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = Adam()
+    #opt = Adam()
+    opt = Adam(lr=FLAGS.learning_rate)
     model.compile(optimizer=opt,
                   loss="binary_crossentropy",
                   metrics=['accuracy', 'categorical_accuracy']
@@ -191,7 +192,8 @@ def dense(input_shape, embed_model, class_length=20):
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = Adam()
+    #opt = Adam()
+    opt = Adam(lr=FLAGS.learning_rate, epsilon=FLAGS.adam_epsilon)
     model.compile(optimizer=opt,
                   loss="binary_crossentropy",
                   #loss=constrained_categorical_crossentropy,
@@ -232,7 +234,8 @@ def conv(input_shape, embed_model, class_length=20):
 
     model = Model(input1, predictions)
     #opt = RMSprop(lr=FLAGS.learning_rate)
-    opt = Adam()
+    #opt = Adam()
+    opt = Adam(lr=FLAGS.learning_rate)
     model.compile(optimizer=opt,
                   loss="binary_crossentropy",
                   metrics=['accuracy']

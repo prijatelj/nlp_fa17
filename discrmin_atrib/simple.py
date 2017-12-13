@@ -45,6 +45,9 @@ MODEL_NAME +=(
 if FLAGS.learning_rate != 0:
     MODEL_NAME += "_LearnRate-" + str(FLAGS.learning_rate)
 
+if FLAGS.adam_epsilon != 1e-8:
+    MODEL_NAME += "_AdamEpsilon-" + str(FLAGS.adam_epsilon)
+
 if FLAGS.time_steps != 1:
     MODEL_NAME += "_TimeStep-" + str(FLAGS.time_steps)
 

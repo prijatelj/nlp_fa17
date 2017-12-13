@@ -38,6 +38,9 @@ if "batch_size" not in tf.flags.FLAGS.__dict__['__flags']:
 if "learning_rate" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_float("learning_rate", 0,#1e-3,
         "Learning rate of optimizer")
+if "adam_epsilon" not in tf.flags.FLAGS.__dict__['__flags']:
+    tf.flags.DEFINE_float("adam_epsilon", 1e-8,#1e-8,
+        "Epsiolon parameter of Adam optimizer")
 if "kfolds" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_integer("kfolds", 0,
                             "The number of folds for k-fold cross entropy.")

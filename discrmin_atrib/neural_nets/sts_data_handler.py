@@ -62,11 +62,17 @@ def read_data(ftext=FLAGS.text_data):
             #feature.append(lemmatize("en", row[2], "n")[0])
             #label.append(lemmatize("en", row[3], "n")[0])
 
+            #"""
             pivot.append(lemmatize(row[0]))
             comparison.append(lemmatize(row[1]))
             feature.append(lemmatize(row[2]))
             label.append(lemmatize(row[3]))
-
+            """
+            pivot.append(row[0])
+            comparison.append(row[1])
+            feature.append(row[2])
+            label.append(row[3])
+            #"""
         return (np.array(pivot),
                np.array(comparison),
                np.array(feature),
