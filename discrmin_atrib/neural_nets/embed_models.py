@@ -1,23 +1,15 @@
-from __future__ import print_function
-
 import os
 import sys
 import csv
 import numpy as np
-from nltk import word_tokenize, RegexpTokenizer
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
-from keras.layers import Dense, Input, Flatten, concatenate, Embedding
-#from keras.layers import Conv1D, MaxPooling1D, Embedding, LSTM
+from keras.layers import Input, Embedding
 from keras.models import Model
 from keras.callbacks import TensorBoard
 
 import tensorflow as tf
-
-#if "train_embed" not in tf.flags.FLAGS.__dict__['__flags']:
-#    tf.flags.DEFINE_boolean("train_embed", False,
-#                            "Trains embeddings on data if True")
 
 tf.flags.FLAGS._parse_flags()
 FLAGS = tf.flags.FLAGS
@@ -28,14 +20,19 @@ def word_embed_tokenizer(w1, w2, feature, embedding_index):
     """
     # vectorize the text samples into a 2D integer tensor
     #texts = w1 + w2 + feature
-    texts = np.append(w1, [w2, feature])
+    #texts = np.append(w1, [w2, feature])
     #texts = np.transpose(np.vstack((w1, w2, feature))).tolist()
+    texts = []
+    for i in range(len(w1)):
+        texts.append(w1[i] +" "+ w2[i] +" "+ feature[i])
+    texts = np.array(texts)
     print("\ntexts shape = ", texts.shape)
+
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(texts)
     sequences = tokenizer.texts_to_sequences(texts)
 
-    pad_seq = pad_sequences(sequences, maxlen=1)
+    pad_seq = pad_sequences(sequences, maxlen=len(sequences[0]))
 
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
@@ -55,7 +52,7 @@ def word_embed_tokenizer(w1, w2, feature, embedding_index):
     embedding_layer = Embedding(num_words+1,
                                 embedding_index["dog"].size,
                                 weights=[embedding_matrix],
-                                input_length=1,
+                                input_length=len(pad_seq[0]),
                                 trainable=FLAGS.train_embed)
 
     print('Computing embeddings.')
@@ -71,12 +68,16 @@ def word_embed_tokenizer(w1, w2, feature, embedding_index):
     # return the embedded input as np.arrays
     pad_seq = np.squeeze(np.asarray(pad_seq))
     print("\n shape pad_seq = ", pad_seq.shape)
-    w1 = pad_seq[:len(w1)]
-    w2 = pad_seq[len(w1):len(w1) + len(w2)]
-    feature = pad_seq[-len(feature):]
+
+
+    #w1 = pad_seq[:len(w1)]
+    #w2 = pad_seq[len(w1):len(w1) + len(w2)]
+    #feature = pad_seq[-len(feature):]
 
     #data = np.vstack((w1, w2, feature))
-    data = np.transpose(np.vstack((w1, w2, feature)))
+    #data = np.transpose(np.vstack((w1, w2, feature)))
+    data = pad_seq
     print("\n shape data = ", data.shape)
+    print("\n data = \n", data)
 
     return model, data

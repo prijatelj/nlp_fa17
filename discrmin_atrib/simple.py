@@ -36,10 +36,14 @@ MODEL_NAME +=(
               +"_HiddenLayers-" + str(FLAGS.hidden_layers)
               +"_HiddenNodes-" + str(FLAGS.hidden_nodes)
               +"_TrainEmbed-" + str(FLAGS.train_embed)
-              +"_LearnRate-" + str(FLAGS.learning_rate)
+              #+"_LearnRate-" + str(FLAGS.learning_rate)
               +"_Epochs-" + str(FLAGS.epochs)
               +"_BatchSize-" + str(FLAGS.batch_size)
              )
+
+
+if FLAGS.learning_rate != 0:
+    MODEL_NAME += "_LearnRate-" + str(FLAGS.learning_rate)
 
 if FLAGS.time_steps != 1:
     MODEL_NAME += "_TimeStep-" + str(FLAGS.time_steps)
@@ -82,13 +86,17 @@ def init(kfolds=FLAGS.kfolds, final_train_test=True):
     print("after emb_data train_data = ", len(train_data))
     print("after emb_data test_data = ", len(test_data))
 
+    tmp_train_labels = train_labels
     train_labels = to_categorical(train_labels, 2)
     test_labels = to_categorical(test_labels, 2)
 
+    print("\ntrain_data and labels length:\n",train_data.shape)
+    print(train_labels.shape,"\n")
+
     if kfolds >= 2:
         skf = StratifiedKFold(n_splits=kfolds, shuffle=True)
-        for fold_num, train_index, test_index in enumerate(
-                skf.split(train_data, train_labels)):
+        for fold_num, (train_index, test_index) in enumerate(
+                skf.split(train_data, tmp_train_labels)):
             x_data = train_data[train_index]
             x_labels = train_labels[train_index]
             y_data = train_data[test_index]
@@ -100,6 +108,8 @@ def init(kfolds=FLAGS.kfolds, final_train_test=True):
                        embed_model,
                        save_model=False,
                        final_test=False)
+
+            # Need to save and print the average results from k-folds
 
     if final_train_test:
         print("\nTEST:\n")
@@ -119,13 +129,13 @@ def train_test(train_data, train_labels,
     # Classification Model
     if FLAGS.model == "lstm":
         classification_model = lstm(
-            train_data.shape, embed_model, 1)
+            train_data.shape, embed_model, 2)
     elif FLAGS.model == "dense":
         classification_model = dense(
-            train_data.shape, embed_model, 1)
+            train_data.shape, embed_model, 2)
     elif FLAGS.model == "conv":
         classification_model = conv(
-            train_data.shape, embed_model, 1)
+            train_data.shape, embed_model, 2)
 
     print("\n train_data length ", len(train_data))
     print("\n train_labels length ", len(train_labels))
@@ -144,7 +154,9 @@ def train_test(train_data, train_labels,
         results_dict, trained_model = nn_main.train_and_eval(
             classification_model,
             train_data,
-            train_labels)
+            train_labels,
+            test_data,
+            test_labels) # here the test data is really validation data.
 
     # Save model
     if save_model:

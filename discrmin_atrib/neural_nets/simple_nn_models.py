@@ -18,12 +18,14 @@ import tensorflow as tf
 import keras.backend as K
 from keras import losses
 from keras.callbacks import TensorBoard
-from keras.layers import Input, Dense, LSTM, Dropout
+from keras.layers import Input, Dense, LSTM, Dropout, \
+    Conv1D, MaxPooling1D, UpSampling1D, \
+    Conv2D, MaxPooling2D, UpSampling2D
 from keras.layers.core import Reshape, Lambda, Flatten
 from keras.layers.merge import Concatenate
 from keras.layers.wrappers import TimeDistributed, Bidirectional
 from keras.models import Model
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, Adam
 
 #import sts_data_handler
 #import embed_models
@@ -136,7 +138,6 @@ def lstm(input_shape, embed_model, class_length=20):
     learns their relation.
     """
     print("input_shape = ", input_shape, " with type = ", type(input_shape))
-
     input1 = Input(shape=[input_shape[1]])
     print("input1.shape = ", input1.get_shape().as_list())
 
@@ -152,16 +153,15 @@ def lstm(input_shape, embed_model, class_length=20):
                          time_step=input_shape[1]
                         )
     predictions = Dense(class_length,
-                        activation='sigmoid',
+                        activation='softmax',
                         name="Single_Dense")(emb)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    #opt = RMSprop(lr=FLAGS.learning_rate)
-    opt = RMSprop()
+    opt = Adam()
     model.compile(optimizer=opt,
-                  loss=constrained_categorical_crossentropy,
+                  loss="binary_crossentropy",
                   metrics=['accuracy', 'categorical_accuracy']
                  )
     return model
@@ -176,18 +176,26 @@ def dense(input_shape, embed_model, class_length=20):
     emb = embed_model(input1)
     print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
+    for i in range(FLAGS.hidden_layers):
+        emb = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(emb)
+        #emb = Dense(FLAGS.hidden_nodes, activation='elu')(emb)
+        if FLAGS.dropout_rate != 0:
+            emb = Dropout(FLAGS.dropout_rate)(emb)
+
     emb = Flatten()(emb)
-    predictions = Dense(class_length,
-                        activation='sigmoid',
+    predictions = Dense(#class_length,
+                        2,
+                        activation='softmax',
                         name="Single_Dense_Pred")(emb)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
-    opt = RMSprop()
+    opt = Adam()
     model.compile(optimizer=opt,
-                  loss=constrained_categorical_crossentropy,
-                  metrics=['accuracy', 'categorical_accuracy']
+                  loss="binary_crossentropy",
+                  #loss=constrained_categorical_crossentropy,
+                  metrics=['accuracy']
                  )
     return model
 
@@ -195,33 +203,38 @@ def conv(input_shape, embed_model, class_length=20):
     """
     """
     print("input_shape = ", input_shape, " with type = ", type(input_shape))
-
     input1 = Input(shape=[input_shape[1]])
     print("input1.shape = ", input1.get_shape().as_list())
 
     emb = embed_model(input1)
     print("\nemb shape = ", emb.get_shape().as_list(), "\n")
 
-    #emb = TimeDistributed(
-    #    Dense(class_length, activation='elu', name='timed'))(emb)
-    #emb = Flatten()(emb)
-    #for i in range(FLAGS.hidden_layers):
-    #    emb = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(emb)
-    #    if FLAGS.dropout_rate != 0:
-    #        emb = Dropout(FLAGS.dropout_rate)(emb)
-    #emb = Flatten()(emb)
+    conv = UpSampling1D(100)(emb)
+    #conv = UpSampling2D((100,0))(emb)
+    print("\nUpSampled shape = ", conv.get_shape().as_list(), "\n")
 
+    conv = Conv1D(150, 25, activation="elu")(conv)
+    conv = MaxPooling1D(2)(conv)
+    conv = Conv1D(50, 5, activation="elu")(conv)
+    conv = MaxPooling1D(2)(conv)
+
+    for i in range(FLAGS.hidden_layers):
+        conv = TimeDistributed(Dense(FLAGS.hidden_nodes, activation='elu'))(conv)
+        if FLAGS.dropout_rate != 0:
+            conv = Dropout(FLAGS.dropout_rate)(conv)
+
+    conv = Flatten()(conv)
     predictions = Dense(class_length,
                         activation='sigmoid',
-                        name="Single_Dense")(emb)
+                        name="Single_Dense")(conv)
 
     print("predictions.shape = ", predictions.get_shape().as_list())
 
     model = Model(input1, predictions)
     #opt = RMSprop(lr=FLAGS.learning_rate)
-    opt = RMSprop()
+    opt = Adam()
     model.compile(optimizer=opt,
-                  loss=constrained_categorical_crossentropy,
-                  metrics=['accuracy', 'categorical_accuracy']
+                  loss="binary_crossentropy",
+                  metrics=['accuracy']
                  )
     return model

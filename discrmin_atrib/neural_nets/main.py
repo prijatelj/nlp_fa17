@@ -36,7 +36,8 @@ if "batch_size" not in tf.flags.FLAGS.__dict__['__flags']:
                             "The number of records to process per batch during "
                             + "training.")
 if "learning_rate" not in tf.flags.FLAGS.__dict__['__flags']:
-    tf.flags.DEFINE_float("learning_rate", 1e-3, "Learning rate of optimizer")
+    tf.flags.DEFINE_float("learning_rate", 0,#1e-3,
+        "Learning rate of optimizer")
 if "kfolds" not in tf.flags.FLAGS.__dict__['__flags']:
     tf.flags.DEFINE_integer("kfolds", 0,
                             "The number of folds for k-fold cross entropy.")
